@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "set-webhook": "node scripts/set-webhook.js"
+    "set-webhook": "node scripts/set-webhook.js",
+    "bot:poll": "node scripts/poll-bot.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
