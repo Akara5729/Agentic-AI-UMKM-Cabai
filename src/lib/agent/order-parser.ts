@@ -12,48 +12,60 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { ExtractedOrderPayload, ExtractedOrderItem } from "@/types/agent";
 import { Order, OrderItem, Product } from "@/types/database";
 
-/** Blok JSON order diapit dalam kode block khusus */
-const ORDER_JSON_REGEX = /```json:order\s*([\s\S]*?)```/;
-
 /**
  * Mengekstrak payload JSON order dari respons teks LLM.
- * @returns Payload order yang sudah diparsing, atau null jika tidak ada pesanan
+ * Mendukung format ```json:order, ```json, maupun objek JSON mentah.
  */
 export function extractOrderPayload(
   llmResponse: string
 ): ExtractedOrderPayload | null {
-  const match = llmResponse.match(ORDER_JSON_REGEX);
-  if (!match || !match[1]) {
+  // 1. Coba match kode block ```json:order atau ```json
+  const blockMatch = llmResponse.match(
+    /```(?:json:order|json)?\s*(\{[\s\S]*?"action"\s*:\s*"CREATE_ORDER"[\s\S]*?\})\s*```/i
+  );
+  let jsonString = blockMatch ? blockMatch[1] : null;
+
+  // 2. Fallback: Cari blok objek JSON mentah yang memuat "action": "CREATE_ORDER"
+  if (!jsonString) {
+    const rawMatch = llmResponse.match(
+      /(\{[\s\S]*?"action"\s*:\s*"CREATE_ORDER"[\s\S]*?\})/i
+    );
+    jsonString = rawMatch ? rawMatch[1] : null;
+  }
+
+  if (!jsonString) {
     return null; // Tidak ada pesanan dalam respons ini
   }
 
   try {
-    const payload = JSON.parse(match[1].trim()) as ExtractedOrderPayload;
+    const payload = JSON.parse(jsonString.trim()) as ExtractedOrderPayload;
 
     // Validasi struktur minimal
     if (
-      payload.action !== "CREATE_ORDER" ||
-      !payload.customer_name ||
-      !Array.isArray(payload.items) ||
-      payload.items.length === 0
+      payload.action === "CREATE_ORDER" &&
+      Array.isArray(payload.items) &&
+      payload.items.length > 0
     ) {
-      console.warn("[ORDER PARSER] Invalid JSON:order structure:", match[1]);
-      return null;
+      return payload;
     }
 
-    return payload;
+    console.warn("[ORDER PARSER] Invalid order structure:", jsonString);
+    return null;
   } catch (err) {
-    console.error("[ORDER PARSER] Failed to parse JSON:order block:", err);
+    console.error("[ORDER PARSER] Failed to parse JSON block:", err);
     return null;
   }
 }
 
 /**
- * Membersihkan respons teks LLM dari blok json:order tersembunyi
+ * Membersihkan respons teks LLM dari blok JSON tersembunyi
  * sebelum dikirim ke pelanggan
  */
 export function stripOrderPayload(llmResponse: string): string {
-  return llmResponse.replace(ORDER_JSON_REGEX, "").trim();
+  return llmResponse
+    .replace(/```(?:json:order|json)?\s*\{[\s\S]*?"action"\s*:\s*"CREATE_ORDER"[\s\S]*?\}\s*```/gi, "")
+    .replace(/\{[\s\S]*?"action"\s*:\s*"CREATE_ORDER"[\s\S]*?\}/gi, "")
+    .trim();
 }
 
 export interface ValidatedOrder {
@@ -180,7 +192,10 @@ export async function validateAndPriceOrder(
   const order: Omit<Order, "id" | "created_at" | "updated_at"> = {
     order_number: orderNumber,
     telegram_chat_id: telegramChatId,
-    customer_name: payload.customer_name,
+    customer_name:
+      payload.customer_name && payload.customer_name !== "Belum Diketahui"
+        ? payload.customer_name
+        : "Pelanggan Cabai",
     customer_username: customerUsername || null,
     status: "PENDING",
     fulfillment_method: payload.fulfillment_method || "PICKUP",

@@ -236,14 +236,27 @@ Jika hanya bertanya harga/stok dan belum pesan, JANGAN sertakan blok json:order.
   const aiData = await aiRes.json();
   const rawAIResponse = aiData.result?.choices?.[0]?.message?.content || aiData.result?.response || "";
 
-  // 4. Periksa apakah ada pesanan
-  const orderRegex = /```json:order\s*([\s\S]*?)```/;
-  const match = rawAIResponse.match(orderRegex);
-  const cleanResponse = rawAIResponse.replace(orderRegex, "").trim();
+  // 4. Periksa apakah ada pesanan (mendukung ```json:order, ```json, maupun JSON mentah)
+  const blockMatch = rawAIResponse.match(
+    /```(?:json:order|json)?\s*(\{[\s\S]*?"action"\s*:\s*"CREATE_ORDER"[\s\S]*?\})\s*```/i
+  );
+  let jsonString = blockMatch ? blockMatch[1] : null;
 
-  if (match && match[1]) {
+  if (!jsonString) {
+    const rawMatch = rawAIResponse.match(
+      /(\{[\s\S]*?"action"\s*:\s*"CREATE_ORDER"[\s\S]*?\})/i
+    );
+    jsonString = rawMatch ? rawMatch[1] : null;
+  }
+
+  const cleanResponse = rawAIResponse
+    .replace(/```(?:json:order|json)?\s*\{[\s\S]*?"action"\s*:\s*"CREATE_ORDER"[\s\S]*?\}\s*```/gi, "")
+    .replace(/\{[\s\S]*?"action"\s*:\s*"CREATE_ORDER"[\s\S]*?\}/gi, "")
+    .trim();
+
+  if (jsonString) {
     try {
-      const orderPayload = JSON.parse(match[1].trim());
+      const orderPayload = JSON.parse(jsonString.trim());
       console.log("🛒 [PESANAN TERDETEKSI]", orderPayload);
 
       // Hitung harga di backend
