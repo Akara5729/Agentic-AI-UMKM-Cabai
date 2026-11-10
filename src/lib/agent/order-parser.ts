@@ -129,16 +129,33 @@ export async function validateAndPriceOrder(
     const searchKey = (itemPayload.product_name || itemPayload.product_id || "").toLowerCase();
     let matchedProduct: Product | undefined;
 
-    // Coba berbagai strategi pencarian
-    matchedProduct =
-      productMap.get(searchKey) ||
-      Array.from(productMap.values()).find(
-        (p) =>
-          p.name.toLowerCase().includes(searchKey) ||
-          searchKey.includes(p.name.toLowerCase().split(" ")[0])
-      );
+    // Normalisasi cabe -> cabai dan pencarian berbasis skoring kata kunci
+    const normKey = searchKey.replace(/cabe/g, "cabai").trim();
+    const keyWords = normKey.split(/\s+/).filter((w) => w.length > 2);
 
-    if (!matchedProduct) {
+    let bestScore = 0;
+    for (const p of products) {
+      const pNameLower = p.name.toLowerCase();
+      // Match langsung
+      if (pNameLower === normKey || p.slug === searchKey) {
+        matchedProduct = p as Product;
+        break;
+      }
+      // Hitung kata yang cocok (misal 'rawit' & 'merah')
+      let score = 0;
+      for (const kw of keyWords) {
+        if (pNameLower.includes(kw)) score += 2;
+      }
+      if (pNameLower.includes(normKey) || normKey.includes(pNameLower)) {
+        score += 3;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        matchedProduct = p as Product;
+      }
+    }
+
+    if (!matchedProduct || bestScore === 0) {
       errors.push(
         `Produk "${itemPayload.product_name || itemPayload.product_id}" tidak ditemukan dalam katalog.`
       );
@@ -173,21 +190,30 @@ export async function validateAndPriceOrder(
     });
   }
 
-  // Generate nomor pesanan unik
+  // Generate nomor pesanan unik yang aman dari tabrakan duplikat
   const now = new Date();
   const dateStr =
     now.getFullYear().toString() +
     String(now.getMonth() + 1).padStart(2, "0") +
     String(now.getDate()).padStart(2, "0");
+  const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const orderNumber = `CAB-${dateStr}-${randomSuffix}`;
 
-  // Ambil counter pesanan hari ini untuk sequential numbering
-  const { count } = await supabase
-    .from("orders")
-    .select("*", { count: "exact", head: true })
-    .gte("created_at", new Date().toISOString().split("T")[0]);
-
-  const orderSeq = String((count || 0) + 1).padStart(3, "0");
-  const orderNumber = `CAB-${dateStr}-${orderSeq}`;
+  // Normalisasi fulfillment_method agar 100% cocok dengan enum PostgreSQL
+  let fulfillmentMethod: "PICKUP" | "DELIVERY_COURIER" = "PICKUP";
+  if (payload.fulfillment_method) {
+    const fm = String(payload.fulfillment_method).toUpperCase();
+    if (
+      fm.includes("DELIVER") ||
+      fm.includes("KURIR") ||
+      fm.includes("ANTAR") ||
+      fm.includes("KIRIM")
+    ) {
+      fulfillmentMethod = "DELIVERY_COURIER";
+    } else {
+      fulfillmentMethod = "PICKUP";
+    }
+  }
 
   const order: Omit<Order, "id" | "created_at" | "updated_at"> = {
     order_number: orderNumber,
@@ -198,7 +224,7 @@ export async function validateAndPriceOrder(
         : "Pelanggan Cabai",
     customer_username: customerUsername || null,
     status: "PENDING",
-    fulfillment_method: payload.fulfillment_method || "PICKUP",
+    fulfillment_method: fulfillmentMethod,
     pickup_time_estimate: payload.pickup_time_estimate || null,
     total_amount: totalAmount,
     notes: payload.notes || null,

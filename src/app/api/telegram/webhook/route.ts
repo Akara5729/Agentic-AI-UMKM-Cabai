@@ -181,10 +181,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
           await sendMessage(chatId, confirmMsg);
         } else {
-          // Error database - kirim pesan error yang ramah
+          // Error database - log dan kirim detail error
+          console.error("[WEBHOOK] Order insert failed:", insertOrderErr);
+          const errHint = insertOrderErr?.message || "Database insert failed";
           await sendMessage(
             chatId,
-            `😔 Maaf, ada kendala teknis saat menyimpan pesanan. Silakan coba lagi atau hubungi penjual langsung.\n\n_Pesan error: Database insert failed_`
+            `😔 Maaf, ada kendala teknis saat menyimpan pesanan (${errHint}). Silakan coba sesaat lagi ya.`
           );
         }
       } else {
