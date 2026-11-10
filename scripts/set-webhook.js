@@ -1,16 +1,28 @@
 // Helper script untuk registrasi Telegram Webhook
-const domain = process.argv[2];
+try {
+  process.loadEnvFile(".env.local");
+} catch (e) {
+  // Gunakan process.env jika .env.local tidak ada
+}
+
+const domain = process.argv[2] || process.env.NEXT_PUBLIC_APP_URL;
 
 if (!domain) {
   console.error("Usage: node scripts/set-webhook.js <domain-vercel>");
-  console.error("Example: node scripts/set-webhook.js https://agentic-ai-umkm-cabai-xxx.vercel.app");
+  console.error("Example: node scripts/set-webhook.js https://agenticaiumkmcabai.vercel.app");
+  process.exit(1);
+}
+
+const botToken = process.env.TELEGRAM_BOT_TOKEN;
+const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET || "cabai_secret_webhook_token_2026";
+
+if (!botToken) {
+  console.error("❌ TELEGRAM_BOT_TOKEN tidak ditemukan di environment variables / .env.local!");
   process.exit(1);
 }
 
 const cleanDomain = domain.replace(/\/+$/, "");
 const webhookUrl = `${cleanDomain}/api/telegram/webhook`;
-const botToken = "9167950971:AAGbzLFr0SW8NKHsWj1t0WuSoDa8mbPIX0o";
-const secretToken = "cabai_secret_webhook_token_2026";
 
 console.log(`Setting webhook to: ${webhookUrl} ...`);
 

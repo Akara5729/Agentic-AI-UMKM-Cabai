@@ -37,7 +37,7 @@ export default function AdminLayout({
             </div>
             <div>
               <h1 className="font-bold text-sm tracking-wide text-white">
-                Cabai Ibu Umi
+                Toko Cabai Ibu Umi
               </h1>
               <p className="text-xs text-slate-400">Portal Admin UMKM</p>
             </div>
@@ -103,7 +103,7 @@ export default function AdminLayout({
             <div className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center">
               <Flame className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-sm">Cabai Ibu Umi</span>
+            <span className="font-bold text-sm">Toko Cabai Ibu Umi</span>
           </div>
           <div className="flex items-center gap-2">
             {navigation.map((item) => (

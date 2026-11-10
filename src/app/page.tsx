@@ -9,14 +9,14 @@ export default function HomePage() {
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-100 text-red-700 text-sm font-semibold tracking-wide border border-red-200 shadow-sm">
           <Flame className="w-4 h-4 text-red-600 animate-pulse" />
-          <span>Sistem Agentic AI UMKM Cabai • Fase 1 Aktif</span>
+          <span>Sistem Agentic AI Toko Cabai Ibu Umi • Live Produksi</span>
         </div>
 
         {/* Hero Title */}
         <div className="space-y-4">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight">
             Otomasi Pemesanan & Customer Service{" "}
-            <span className="text-red-600">UMKM Cabai</span>
+            <span className="text-red-600">Toko Cabai Ibu Umi</span>
           </h1>
           <p className="max-w-2xl mx-auto text-lg text-slate-600 leading-relaxed">
             Didukung oleh Agentic AI Cloudflare Workers AI Llama 3.1, Telegram Bot interaktif 24/7, dan Dashboard Antrean Realtime berbasis Supabase PostgreSQL.

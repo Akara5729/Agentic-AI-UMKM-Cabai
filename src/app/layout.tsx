@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Admin Portal - UMKM Cabai Berkah",
-  description: "Sistem Agentic AI & Dashboard Pemesanan UMKM Komoditas Cabai",
+  title: "Admin Portal - Toko Cabai Ibu Umi",
+  description: "Sistem Agentic AI & Dashboard Pemesanan Toko Cabai Ibu Umi",
 };
 
 export default function RootLayout({

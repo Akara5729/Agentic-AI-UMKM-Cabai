@@ -104,13 +104,25 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bot_conversations ENABLE ROW LEVEL SECURITY;
 
--- Policy: Allow public read-only pada products (bot butuh baca harga)
+-- Policy: Allow public read & update pada products (bot baca harga, dashboard update harga)
 DROP POLICY IF EXISTS "Allow public read products" ON products;
 CREATE POLICY "Allow public read products" ON products FOR SELECT USING (true);
 
--- Policy: Allow public read-only pada store_settings (bot butuh baca status toko)
+DROP POLICY IF EXISTS "Allow public update products" ON products;
+CREATE POLICY "Allow public update products" ON products FOR UPDATE USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public insert products" ON products;
+CREATE POLICY "Allow public insert products" ON products FOR INSERT WITH CHECK (true);
+
+-- Policy: Allow public read & update pada store_settings (bot baca status, dashboard update toko)
 DROP POLICY IF EXISTS "Allow public read store_settings" ON store_settings;
 CREATE POLICY "Allow public read store_settings" ON store_settings FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public update store_settings" ON store_settings;
+CREATE POLICY "Allow public update store_settings" ON store_settings FOR UPDATE USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public insert store_settings" ON store_settings;
+CREATE POLICY "Allow public insert store_settings" ON store_settings FOR INSERT WITH CHECK (true);
 
 -- Policy: Service role (backend/webhook) bisa SELECT dan INSERT orders
 DROP POLICY IF EXISTS "Service role full access orders" ON orders;
@@ -125,7 +137,7 @@ CREATE POLICY "Service role full access bot_conversations" ON bot_conversations 
 -- 11. SEED DATA AWAL
 -- Insert store settings jika belum ada
 INSERT INTO store_settings (store_name, is_open, opening_hours, address, payment_info, stem_removal_fee_per_kg, min_order_kg)
-SELECT 'UMKM Cabai Berkah', true, '07:00 - 17:00 WIB', 'Jl. Pasar Induk Sayur No. 12, Kios Blok C-05', 'BCA: 1234567890 a.n Cabai Berkah / QRIS di Kios', 2000.00, 0.5
+SELECT 'Toko Cabai Ibu Umi', true, '07:00 - 17:00 WIB', 'Jl. Pasar Bitingan Bawah', 'BCA: 1234567890 a.n Toko Cabai Ibu Umi / QRIS di Kios', 2000.00, 0.5
 WHERE NOT EXISTS (SELECT 1 FROM store_settings LIMIT 1);
 
 -- Insert 5 varian cabai populer

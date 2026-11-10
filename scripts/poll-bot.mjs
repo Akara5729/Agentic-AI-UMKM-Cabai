@@ -140,11 +140,11 @@ async function handleMessage(msg) {
   ]);
 
   const storeSettings = settingsData || {
-    store_name: "Cabai Ibu Umi",
+    store_name: "Toko Cabai Ibu Umi",
     is_open: true,
     opening_hours: "07:00 - 17:00 WIB",
-    address: "Jl. Pasar Induk Sayur No. 12, Kios Blok C-05",
-    payment_info: "BCA: 1234567890 a.n Cabai Ibu Umi / QRIS di Kios",
+    address: "Jl. Pasar Bitingan Bawah",
+    payment_info: "BCA: 1234567890 a.n Toko Cabai Ibu Umi / QRIS di Kios",
     stem_removal_fee_per_kg: 2000,
   };
 

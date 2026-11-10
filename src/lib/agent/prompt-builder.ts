@@ -37,12 +37,12 @@ export async function fetchLiveContext(): Promise<AgentContextData> {
 
   // Fallback jika database belum siap (development mode)
   const settings: AgentContextData["storeSettings"] = settingsResult.data || {
-    store_name: "UMKM Cabai Berkah",
+    store_name: "Toko Cabai Ibu Umi",
     is_open: true,
     opening_hours: "07:00 - 17:00 WIB",
-    address: "Jl. Pasar Induk Sayur No. 12, Kios Blok C-05",
+    address: "Jl. Pasar Bitingan Bawah",
     stem_removal_fee_per_kg: 2000,
-    payment_info: "BCA: 1234567890 a.n UMKM Cabai Berkah",
+    payment_info: "BCA: 1234567890 a.n Toko Cabai Ibu Umi / QRIS di Kios",
   };
 
   const products: AgentContextData["products"] = productsResult.data || [
