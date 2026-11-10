@@ -45,8 +45,8 @@ interface TelegramUpdate {
   update_id: number;
   message?: {
     message_id: number;
-    chat: { id: number; username?: string; first_name?: string };
-    from?: { id: number; username?: string; first_name?: string };
+    chat: { id: number; username?: string; first_name?: string; last_name?: string };
+    from?: { id: number; username?: string; first_name?: string; last_name?: string };
     text?: string;
     date: number;
   };
@@ -79,12 +79,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const chatId = message.chat.id;
     const rawUserText = message.text;
     const username = message.from?.username || message.chat.username;
+    const firstName = message.from?.first_name || message.chat.first_name || "";
+    const lastName = message.from?.last_name || "";
+    const telegramSenderName =
+      [firstName, lastName].filter(Boolean).join(" ") ||
+      (username ? `@${username}` : "Kak");
 
     // Handle /start command
     if (rawUserText === "/start") {
       await sendMessage(
         chatId,
-        `🌶️ *Halo! Selamat datang di UMKM Cabai Berkah!*\n\nSaya adalah *Bang Cabai*, asisten virtual Anda untuk informasi dan pemesanan cabai segar.\n\nSilakan tanyakan:\n• 📋 Harga cabai hari ini\n• 📦 Stok yang tersedia\n• 🛒 Cara pemesanan\n• ✂️  Jasa petik tangkai\n\nAda yang bisa saya bantu? 😊`
+        `🌶️ *Halo Kak ${telegramSenderName}! Selamat datang di Toko Cabai Ibu Umi!*\n\nSaya adalah *Bang Cabai*, asisten virtual Anda untuk informasi dan pemesanan cabai segar di *Jl. Pasar Bitingan Bawah*.\n\nSilakan tanyakan:\n• 📋 Harga cabai hari ini\n• 📦 Stok yang tersedia\n• 🛒 Langsung pesan cabai\n• ✂️ Jasa petik tangkai\n\nAda yang bisa saya bantu? 😊`
       );
       return NextResponse.json({ ok: true });
     }
@@ -112,7 +117,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const conversationHistory: ChatMessage[] =
       (convData?.conversation_history as ChatMessage[]) || [];
 
-    // ---- Langkah 5 & 6: Ambil konteks live & Bangun prompt, lalu panggil AI ----
+    // ---- Langkah 5 & 6: Ambil konteks live & Bangun prompt dengan Nama Telegram ----
     const [liveContext] = await Promise.all([fetchLiveContext()]);
 
     // Tambahkan pesan user yang sudah disanitasi ke history
@@ -121,10 +126,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       content: guardResult.safeContent, // Input dalam XML sandbox
     };
 
-    const messagesForAI = buildSystemPrompt(liveContext, [
-      ...conversationHistory,
-      userMessageForAI,
-    ]);
+    const messagesForAI = buildSystemPrompt(
+      liveContext,
+      [...conversationHistory, userMessageForAI],
+      telegramSenderName
+    );
 
     // Panggil Cloudflare AI
     const rawAIResponse = await runCloudflareAI({
@@ -139,6 +145,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // ---- Langkah 8 & 9: Validasi & Insert pesanan jika ada ----
     if (orderPayload) {
+      // Pastikan nama pembeli selalu terisi dari nama Telegram
+      if (
+        !orderPayload.customer_name ||
+        orderPayload.customer_name === "Belum Diketahui" ||
+        orderPayload.customer_name === "Nama Pembeli"
+      ) {
+        orderPayload.customer_name = telegramSenderName;
+      }
+
       const validatedOrder = await validateAndPriceOrder(
         orderPayload,
         chatId,
