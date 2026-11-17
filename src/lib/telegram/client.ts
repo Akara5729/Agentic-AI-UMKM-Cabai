@@ -48,7 +48,23 @@ export async function sendMessage(
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error(`[TG] sendMessage error ${res.status}:`, errText.substring(0, 200));
+      console.warn(`[TG] sendMessage error with parse_mode (${res.status}): ${errText.substring(0, 150)}. Retrying without parse_mode...`);
+
+      // Fallback: kirim tanpa parse_mode jika format Markdown ditolak Telegram
+      if (body.parse_mode) {
+        delete body.parse_mode;
+        const retryRes = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (retryRes.ok) {
+          return true;
+        }
+        const retryErr = await retryRes.text();
+        console.error(`[TG] sendMessage retry failed (${retryRes.status}):`, retryErr.substring(0, 150));
+      }
       return false;
     }
 

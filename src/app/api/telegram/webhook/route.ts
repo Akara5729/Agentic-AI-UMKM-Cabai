@@ -19,7 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { runCloudflareAI } from "@/lib/cloudflare-ai/client";
-import { fetchLiveContext, buildSystemPrompt } from "@/lib/agent/prompt-builder";
+import { fetchLiveContext, buildSystemPrompt, formatMenuMessage } from "@/lib/agent/prompt-builder";
 import {
   processUserInput,
   INJECTION_REJECTION_MESSAGE,
@@ -89,8 +89,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (rawUserText === "/start") {
       await sendMessage(
         chatId,
-        `🌶️ *Halo Kak ${telegramSenderName}! Selamat datang di Toko Cabai Ibu Umi!*\n\nSaya adalah *Bang Cabai*, asisten virtual Anda untuk informasi dan pemesanan cabai segar di *Jl. Pasar Bitingan Bawah*.\n\nSilakan tanyakan:\n• 📋 Harga cabai hari ini\n• 📦 Stok yang tersedia\n• 🛒 Langsung pesan cabai\n• ✂️ Jasa petik tangkai\n\nAda yang bisa saya bantu? 😊`
+        `🌶️ *Halo Kak ${telegramSenderName}! Selamat datang di Toko Cabai Ibu Umi!*\n\nSaya adalah *Bang Cabai*, asisten virtual Anda untuk informasi dan pemesanan cabai segar di *Jl. Pasar Bitingan Bawah*.\n\nSilakan tanyakan:\n• 📋 /menu - Daftar harga & stok cabai\n• 🛒 Langsung pesan cabai\n• ✂️ Jasa petik tangkai\n\nAda yang bisa saya bantu? 😊`
       );
+      return NextResponse.json({ ok: true });
+    }
+
+    // Handle command /menu dan variasi permintaan menu cepat
+    const cleanLowerText = rawUserText.trim().toLowerCase();
+    const isDirectMenuRequest =
+      cleanLowerText === "/menu" ||
+      cleanLowerText === "menu" ||
+      cleanLowerText === "daftar menu" ||
+      cleanLowerText === "minta menu" ||
+      cleanLowerText === "lihat menu" ||
+      cleanLowerText === "katalog" ||
+      cleanLowerText === "/katalog" ||
+      cleanLowerText === "/harga" ||
+      cleanLowerText === "harga";
+
+    if (isDirectMenuRequest) {
+      await sendTypingAction(chatId);
+      const liveContext = await fetchLiveContext();
+      const menuMsg = formatMenuMessage(liveContext, telegramSenderName);
+      await sendMessage(chatId, menuMsg);
       return NextResponse.json({ ok: true });
     }
 

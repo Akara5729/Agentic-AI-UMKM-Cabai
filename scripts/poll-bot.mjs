@@ -60,7 +60,7 @@ async function initBot() {
 // Helper kirim pesan ke Telegram
 async function sendTelegram(chatId, text) {
   try {
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -69,6 +69,18 @@ async function sendTelegram(chatId, text) {
         parse_mode: "Markdown",
       }),
     });
+    if (!res.ok) {
+      // Fallback kirim plain text jika Markdown entity parsing gagal
+      console.warn(`[TG] Gagal kirim dengan Markdown (${res.status}), mencoba fallback teks biasa...`);
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+        }),
+      });
+    }
   } catch (err) {
     console.error("Gagal kirim pesan:", err.message);
   }
@@ -110,8 +122,69 @@ async function handleMessage(msg) {
 
   // Handle command /start
   if (userText === "/start") {
-    const welcome = `🌶️ *Halo Kak ${senderName}! Selamat datang di Cabai Ibu Umi!*\n\nSaya adalah *Bang Cabai*, asisten virtual resmi Anda.\n\nSilakan tanyakan:\n• 📋 *Harga cabai hari ini*\n• 📦 *Stok yang tersedia*\n• ✂️ *Jasa petik tangkai*\n• 🛒 *Pemesanan cabai*\n\nAda yang bisa saya bantu? 😊`;
+    const welcome = `🌶️ *Halo Kak ${senderName}! Selamat datang di Cabai Ibu Umi!*\n\nSaya adalah *Bang Cabai*, asisten virtual resmi Anda.\n\nSilakan tanyakan:\n• 📋 /menu - Daftar harga & stok cabai\n• 📦 *Stok yang tersedia*\n• ✂️ *Jasa petik tangkai*\n• 🛒 *Pemesanan cabai*\n\nAda yang bisa saya bantu? 😊`;
     await sendTelegram(chatId, welcome);
+    return;
+  }
+
+  // Handle command /menu dan permintaan menu instan
+  const cleanLowerText = userText.trim().toLowerCase();
+  const isMenuCmd =
+    cleanLowerText === "/menu" ||
+    cleanLowerText === "menu" ||
+    cleanLowerText === "daftar menu" ||
+    cleanLowerText === "minta menu" ||
+    cleanLowerText === "lihat menu" ||
+    cleanLowerText === "katalog" ||
+    cleanLowerText === "/katalog" ||
+    cleanLowerText === "/harga" ||
+    cleanLowerText === "harga";
+
+  if (isMenuCmd) {
+    const [{ data: sData }, { data: pData }] = await Promise.all([
+      supabase.from("store_settings").select("*").limit(1).single(),
+      supabase.from("products").select("*").order("name"),
+    ]);
+
+    const s = sData || {
+      store_name: "Toko Cabai Ibu Umi",
+      is_open: true,
+      opening_hours: "07:00 - 17:00 WIB",
+      address: "Jl. Pasar Bitingan Bawah",
+      payment_info: "BCA: 1234567890 a.n Toko Cabai Ibu Umi / QRIS di Kios",
+      stem_removal_fee_per_kg: 2000,
+    };
+    const pList = pData || [];
+    const status = s.is_open ? "BUKA ✅" : "TUTUP ❌";
+    const biayaPetik = s.stem_removal_fee_per_kg > 0 ? `Rp ${formatRupiah(s.stem_removal_fee_per_kg)}/kg` : "GRATIS";
+
+    let menuMsg = `🌶️ *Daftar Menu & Harga Cabai Hari Ini*\n`;
+    menuMsg += `*${s.store_name}* (Status: ${status})\n`;
+    menuMsg += `📍 ${s.address}\n`;
+    menuMsg += `🕐 Jam Buka: ${s.opening_hours}\n\n`;
+
+    const avail = pList.filter((p) => p.is_available && p.stock_kg > 0);
+    const outStock = pList.filter((p) => !p.is_available || p.stock_kg <= 0);
+
+    if (avail.length > 0) {
+      menuMsg += `*Katalog Cabai Tersedia:*\n`;
+      for (const p of avail) {
+        menuMsg += `• *${p.name}*: Rp ${formatRupiah(p.current_price_per_kg)}/kg _(Stok: ${p.stock_kg} kg)_\n`;
+      }
+    }
+
+    if (outStock.length > 0) {
+      menuMsg += `\n*Stok Habis / Kosong:*\n`;
+      for (const p of outStock) {
+        menuMsg += `• ~${p.name}~ _(Kosong)_\n`;
+      }
+    }
+
+    menuMsg += `\n✂️ *Jasa Petik Tangkai:* ${biayaPetik}\n`;
+    menuMsg += `💰 *Pembayaran:* ${s.payment_info}\n\n`;
+    menuMsg += `💡 *Cara Pemesanan:*\nKak ${senderName} cukup ketik jumlah dan varian cabai yang ingin dibeli, contoh:\n_"Pesan cabai rawit merah 2kg dipetikin ya"_\n\nAda yang ingin dipesan sekarang? 😊`;
+
+    await sendTelegram(chatId, menuMsg);
     return;
   }
 
@@ -252,8 +325,8 @@ Catatan: Jika hanya bertanya harga/stok, jawab informatif tanpa blok json:order.
   }
 
   const cleanResponse = rawAIResponse
-    .replace(/```(?:json:order|json)?\s*\{[\s\S]*?"action"\s*:\s*"CREATE_ORDER"[\s\S]*?\}\s*```/gi, "")
-    .replace(/\{[\s\S]*?"action"\s*:\s*"CREATE_ORDER"[\s\S]*?\}/gi, "")
+    .replace(/```(?:json:order|json)?\s*\{[\s\S]*?\}\s*```/gi, "")
+    .replace(/\{[\s\S]*?"action"\s*:\s*"(?:CREATE_ORDER|DISPLAY_MENU)"[\s\S]*?\}/gi, "")
     .trim();
 
   if (jsonString) {

@@ -63,8 +63,8 @@ export function extractOrderPayload(
  */
 export function stripOrderPayload(llmResponse: string): string {
   return llmResponse
-    .replace(/```(?:json:order|json)?\s*\{[\s\S]*?"action"\s*:\s*"CREATE_ORDER"[\s\S]*?\}\s*```/gi, "")
-    .replace(/\{[\s\S]*?"action"\s*:\s*"CREATE_ORDER"[\s\S]*?\}/gi, "")
+    .replace(/```(?:json:order|json)?\s*\{[\s\S]*?\}\s*```/gi, "")
+    .replace(/\{[\s\S]*?"action"\s*:\s*"(?:CREATE_ORDER|DISPLAY_MENU)"[\s\S]*?\}/gi, "")
     .trim();
 }
 

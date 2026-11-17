@@ -57,6 +57,50 @@ export async function fetchLiveContext(): Promise<AgentContextData> {
 }
 
 /**
+ * Format pesan daftar menu dan harga resmi yang rapi untuk dikirim langsung ke pengguna
+ */
+export function formatMenuMessage(
+  context: AgentContextData,
+  senderName: string = "Kak"
+): string {
+  const { storeSettings: s, products } = context;
+  const statusToko = s.is_open ? "BUKA ✅" : "TUTUP ❌";
+  const biayaPetik =
+    s.stem_removal_fee_per_kg > 0
+      ? `Rp ${new Intl.NumberFormat("id-ID").format(s.stem_removal_fee_per_kg)}/kg`
+      : "GRATIS";
+
+  const available = products.filter((p) => p.is_available && p.stock_kg > 0);
+  const outOfStock = products.filter((p) => !p.is_available || p.stock_kg <= 0);
+
+  let msg = `🌶️ *Daftar Menu & Harga Cabai Hari Ini*\n`;
+  msg += `*${s.store_name}* (Status: ${statusToko})\n`;
+  msg += `📍 ${s.address}\n`;
+  msg += `🕐 Jam Buka: ${s.opening_hours}\n\n`;
+
+  if (available.length > 0) {
+    msg += `*Katalog Cabai Tersedia:*\n`;
+    for (const p of available) {
+      const harga = new Intl.NumberFormat("id-ID").format(p.current_price_per_kg);
+      msg += `• *${p.name}*: Rp ${harga}/kg _(Stok: ${p.stock_kg} kg)_\n`;
+    }
+  }
+
+  if (outOfStock.length > 0) {
+    msg += `\n*Stok Habis / Kosong:*\n`;
+    for (const p of outOfStock) {
+      msg += `• ~${p.name}~ _(Kosong)_\n`;
+    }
+  }
+
+  msg += `\n✂️ *Jasa Petik Tangkai:* ${biayaPetik}\n`;
+  msg += `💰 *Pembayaran:* ${s.payment_info}\n\n`;
+  msg += `💡 *Cara Pemesanan:*\nKak ${senderName} cukup ketik jumlah dan jenis cabai yang ingin dipesan, contoh:\n_"Pesan cabai rawit merah 2kg dipetikin ya"_\n\nAda yang ingin dipesan sekarang? 😊`;
+
+  return msg;
+}
+
+/**
  * Mengubah data produk menjadi teks tabel yang mudah dibaca LLM.
  */
 function buildProductsTable(products: AgentContextData["products"]): string {
@@ -164,7 +208,9 @@ JIKA PEMBELI MENYATAKAN INGIN PESAN / BELI:
 }
 \`\`\`
 
-CATATAN: Jika pembeli hanya bertanya harga/stok umum ("berapa harga cabai?"), jawab dengan ramah tanpa blok json:order.`;
+CATATAN PENTING PERTANYAAN MENU & HARGA:
+- Jika pembeli menanyakan menu, daftar harga, atau stok (contoh: "ada menu apa aja?", "minta menu", "lihat harga"), berikan daftar harga dengan format rapi menggunakan tanda bullet "• " (JANGAN gunakan tanda bintang "*" sebagai bullet list agar formatting pesan Telegram tidak rusak).
+- JANGAN PERNAH menyertakan blok json:order jika pembeli belum menyatakan ingin membeli/memesan secara pasti! Blok json:order HANYA untuk pesanan nyata (CREATE_ORDER).`;
 
   // Susun array chat messages: system + history + (user message akan ditambah di webhook)
   const messages: ChatMessage[] = [
